@@ -8,6 +8,8 @@ import (
 	"github.com/Pantani/logger"
 	"github.com/hermeznetwork/hermez-integration/client"
 	"github.com/hermeznetwork/hermez-integration/hermez"
+	hezCommon "github.com/hermeznetwork/hermez-node/common"
+	"github.com/iden3/go-iden3-crypto/babyjub"
 )
 
 func main() {
@@ -18,10 +20,13 @@ func main() {
 }
 
 func run(nodeURL string, chainID uint16) error {
+	// wallet configs
 	mnemonic := "seat mandate concert notable miss worth bottom inquiry find raven seat pilot office foam unique"
 	toBjjAddr := "hez:rkv1d1K9P9sNW9AxbndYL7Ttgtqros4Rwgtw9ewJ-S_b"
 	amount := big.NewInt(100)
-	// Increase the wallet index to generate a new wallet based in the bip39.
+
+	// Increase the wallet index to generate a new wallet based
+	// in the bip39, starting from zero
 	walletIndex := 0
 
 	// Create a wallet
@@ -29,12 +34,25 @@ func run(nodeURL string, chainID uint16) error {
 	if err != nil {
 		return err
 	}
+
+	// Create the Baby Jubjub hez address
+	compressPk := bjj.Public().Compress().String()
+	b, err := hex.DecodeString(compressPk)
+	if err != nil {
+		return err
+	}
+	address := hermez.NewHezBJJ(bjj.Public().Compress())
 	pkBuf := [hermez.PkLength]byte(bjj)
-	pk := bjj.Public()
-	address := pk.String()
-	logger.Info("BJJ", logger.Params{
-		"address":     address,
-		"private key": hex.EncodeToString(pkBuf[:]),
+
+	// Create the Hermez hez address
+	pkBytes := hezCommon.SwapEndianness(b)
+	var pkComp babyjub.PublicKeyComp
+	copy(pkComp[:], pkBytes[:])
+
+	logger.Info("BJJ Create", logger.Params{
+		"address_encoded": address,
+		"address_hex":     "0x" + pkComp.String(),
+		"private key":     "0x" + hex.EncodeToString(pkBuf[:]),
 	})
 
 	// The accounts must generate one for each token for the same wallet, calling the

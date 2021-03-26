@@ -48,6 +48,17 @@ func CreateTx(chainID uint16, to string, amount *big.Int, pk babyjub.PrivateKey,
 	return tx, nil
 }
 
+// NewHezBJJ creates a HezBJJ from a *babyjub.PublicKeyComp.
+// Calling this method with a nil bjj causes panic
+func NewHezBJJ(pkComp babyjub.PublicKeyComp) string {
+	sum := pkComp[0]
+	for i := 1; i < len(pkComp); i++ {
+		sum += pkComp[i]
+	}
+	bjjSum := append(pkComp[:], sum)
+	return "hez:" + base64.RawURLEncoding.EncodeToString(bjjSum)
+}
+
 // HezStrToBJJ convert bjj public key to babyjub.PublicKeyComp
 func HezStrToBJJ(s string) (babyjub.PublicKeyComp, error) {
 	const decodedLen = 33

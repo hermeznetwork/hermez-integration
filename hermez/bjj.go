@@ -2,10 +2,10 @@ package hermez
 
 import (
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"strings"
 
+	"github.com/Pantani/errors"
 	ethCrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
@@ -38,10 +38,11 @@ func CreateBJJFromEthAddr(mnemonic string, derivationPath int) (babyjub.PrivateK
 	// Sign message
 	signature, err := w.SignText(ethAccount, []byte(msg))
 	if err != nil {
-		return sk, errors.New("Error signing: " + err.Error())
+		return sk, errors.E("Signing message error", err)
 	}
 
 	signature[len(signature)-1] += 27
+
 	// Hash signature
 	var sb strings.Builder
 	sb.WriteString("0x")
