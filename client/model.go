@@ -15,9 +15,9 @@ import (
 )
 
 type (
-	// BatchAPI is a representation of a batch with additional information
+	// Batch is a representation of a batch with additional information
 	// required by the API, and extracted by joining block table
-	BatchAPI struct {
+	Batch struct {
 		ItemID        uint64             `json:"itemId"`
 		BatchNum      hezCommon.BatchNum `json:"batchNum"`
 		EthBlockNum   int64              `json:"ethereumBlockNum"`
@@ -46,10 +46,29 @@ type (
 		PendingItems uint64            `json:"pendingItems"`
 	}
 
-	// Batches is a representation of a batches API response.
-	Batches struct {
-		Batches      []BatchAPI `json:"batches"`
-		PendingItems uint64     `json:"pendingItems"`
+	// BatchAPI is a representation of a batches API response.
+	BatchAPI struct {
+		Batches      []Batch `json:"batches"`
+		PendingItems uint64  `json:"pendingItems"`
+	}
+
+	// TokenAPI is a representation of a tokens API response.
+	TokenAPI struct {
+		Tokens       []Token `json:"tokens"`
+		PendingItems uint64  `json:"pendingItems"`
+	}
+
+	// Token is a representation of a tokens API object.
+	Token struct {
+		ItemID      uint64            `json:"itemId"`
+		TokenID     hezCommon.TokenID `json:"id"`
+		EthBlockNum int64             `json:"ethereumBlockNum"`
+		EthAddr     ethCommon.Address `json:"ethereumAddress"`
+		Name        string            `json:"name"`
+		Symbol      string            `json:"symbol"`
+		Decimals    uint64            `json:"decimals"`
+		USD         float64           `json:"USD"`
+		USDUpdate   time.Time         `json:"fiatUpdate"`
 	}
 
 	// Account is a representation of a account with additional information
