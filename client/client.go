@@ -63,8 +63,8 @@ func (c *Client) GetBatchTxs(batchNum hezCommon.BatchNum) (*TxAPI, error) {
 }
 
 // GetLastBatch get last Hermez rollup batch
-func (c *Client) GetLastBatch() (*BatchAPI, error) {
-	var result *Batches
+func (c *Client) GetLastBatch() (*Batch, error) {
+	var result *BatchAPI
 	err := c.request.Get(
 		&result,
 		"v1/batches",
@@ -97,4 +97,11 @@ func (c *Client) SendTransaction(tx hezCommon.PoolL2Tx, token hezCommon.Token) (
 			errors.Params{"result": result})
 	}
 	return hash, err
+}
+
+// GetTokens get all supported tokens
+func (c *Client) GetTokens() (*TokenAPI, error) {
+	var result *TokenAPI
+	return result, c.request.GetWithCache(
+		&result, "v1/tokens", nil, time.Minute*5)
 }

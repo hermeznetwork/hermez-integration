@@ -29,8 +29,26 @@ func run(nodeURL string, chainID uint16) error {
 	// create a new Hermez node client
 	c := client.New(nodeURL)
 
+	// get supported tokens
+	tokens, err := c.GetTokens()
+	if err != nil {
+		return err
+	}
+	for _, t := range tokens.Tokens {
+		logger.Info("Token "+t.Name, logger.Params{
+			"TokenID":     t.TokenID,
+			"Decimals":    t.Decimals,
+			"EthAddr":     t.EthAddr,
+			"EthBlockNum": t.EthBlockNum,
+			"ItemID":      t.ItemID,
+			"Symbol":      t.Symbol,
+			"USD":         t.USD,
+			"USDUpdate":   t.USDUpdate,
+		})
+	}
+
 	// track incoming deposits
-	err := deposits(c)
+	err = deposits(c)
 	if err != nil {
 		return err
 	}
@@ -102,14 +120,14 @@ func deposits(c *client.Client) error {
 	if err != nil {
 		return err
 	}
-	logger.Info("Last Batch", logger.Params{"last_batch": lastBatch})
+	logger.Info("Last Batch", logger.Params{"last_batch": lastBatch.BatchNum})
 
 	// Get all transactions for a batch for tracking the deposits
 	batch, err := c.GetBatchTxs(lastBatch.BatchNum)
 	if err != nil {
 		return err
 	}
-	logger.Info("Batch", logger.Params{"number": lastBatch.BatchNum, "batch": batch})
+	logger.Info("Batch", logger.Params{"batch": lastBatch.BatchNum, "txs": len(batch.Txs)})
 	return nil
 }
 
