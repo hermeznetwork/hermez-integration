@@ -114,33 +114,20 @@ func deposits(c *client.Client) error {
 }
 
 // transferToBjj create and send a transfer to baby jubjub transaction
-func transferToBjj(bjj *hermez.Wallet, c *client.Client, chainID uint16, toBjjAddr string, amount *big.Int, fee hezCommon.FeeSelector) error {
-	// Get account to fetch the user idx, nonce and balance
-	ac, err := c.GetAccount(bjj.HezAddress, hermez.EthToken.TokenID)
-	if err != nil {
-		return err
-	}
-	ethAc, err := ac.Accounts.GetAccount(hermez.EthToken.TokenID)
-	if err != nil {
-		return err
-	}
-	logger.Info("Account", logger.Params{"address": bjj.HezAddress, "address_idx": ethAc.Idx})
+func transferToBjj(bjj *hermez.Wallet, c *client.Client, chainID uint16, toBjjAddr string,
+	amount *big.Int, fee hezCommon.FeeSelector) error {
+	// Get account idx, nonce and check the balance
+	token := hermez.EthToken
+	idx, nonce, err := getAccountInfo(c, bjj.HezAddress, amount, token.TokenID)
 
-	// Create the transaction (TransferToBjj)
-	balance := ac.Accounts[0].Balance
-	if balance.Cmp(amount) < 0 {
-		return errors.E("invalid amount", errors.Params{"balance": balance, "amount": amount})
-	}
-
-	idx := hezCommon.Idx(ethAc.Idx)
 	tx, err := hermez.CreateTransferToBjj(
 		chainID,
 		toBjjAddr,
 		amount,
 		bjj.PrivateKey,
 		idx,
-		ethAc.Token.TokenID,
-		ethAc.Nonce,
+		token.TokenID,
+		nonce,
 		fee,
 	)
 	if err != nil {
@@ -156,34 +143,52 @@ func transferToBjj(bjj *hermez.Wallet, c *client.Client, chainID uint16, toBjjAd
 	return nil
 }
 
-// transferToEthAddress create and send a transfer to ethereum address transaction
-func transferToEthAddress(bjj *hermez.Wallet, c *client.Client, chainID uint16, toEthAddr string, amount *big.Int, fee hezCommon.FeeSelector) error {
-	// Get account to fetch the user idx, nonce and balance
-	ac, err := c.GetAccount(bjj.HezAddress, hermez.EthToken.TokenID)
-	if err != nil {
-		return err
-	}
-	ethAc, err := ac.Accounts.GetAccount(hermez.EthToken.TokenID)
-	if err != nil {
-		return err
-	}
-	logger.Info("Account", logger.Params{"address": bjj.HezAddress, "address_idx": ethAc.Idx})
+// getAccountInfo fetches account from network, check the balance and returns
+// the idx, nonce and an error if occurs
+func getAccountInfo(c *client.Client, hezAddress string, amount *big.Int,
+	tokenID hezCommon.TokenID) (hezCommon.Idx, hezCommon.Nonce, error) {
 
-	// Create the transaction (TransferToBjj)
+	idx := hezCommon.Idx(0)
+	nonce := hezCommon.Nonce(0)
+
+	// Get account to fetch the user idx, nonce and balance
+	ac, err := c.GetAccount(hezAddress, tokenID)
+	if err != nil {
+		return idx, nonce, err
+	}
+	ethAc, err := ac.Accounts.GetAccount(tokenID)
+	if err != nil {
+		return idx, nonce, err
+	}
+	logger.Info("Account", logger.Params{"address": hezAddress, "address_idx": ethAc.Idx})
+
+	idx = hezCommon.Idx(ethAc.Idx)
+	nonce = ethAc.Nonce
+
+	// Create the transaction
 	balance := ac.Accounts[0].Balance
 	if balance.Cmp(amount) < 0 {
-		return errors.E("invalid amount", errors.Params{"balance": balance, "amount": amount})
+		return idx, nonce, errors.E("invalid amount", errors.Params{"balance": balance, "amount": amount})
 	}
+	return idx, nonce, nil
+}
 
-	idx := hezCommon.Idx(ethAc.Idx)
+// transferToEthAddress create and send a transfer to ethereum address transaction
+func transferToEthAddress(bjj *hermez.Wallet, c *client.Client, chainID uint16,
+	toEthAddr string, amount *big.Int, fee hezCommon.FeeSelector) error {
+
+	// Get account idx, nonce and check the balance
+	token := hermez.EthToken
+	idx, nonce, err := getAccountInfo(c, bjj.HezAddress, amount, token.TokenID)
+
 	tx, err := hermez.CreateTransferToEthAddress(
 		chainID,
 		toEthAddr,
 		amount,
 		bjj.PrivateKey,
 		idx,
-		ethAc.Token.TokenID,
-		ethAc.Nonce,
+		token.TokenID,
+		nonce,
 		fee,
 	)
 	if err != nil {
@@ -200,33 +205,21 @@ func transferToEthAddress(bjj *hermez.Wallet, c *client.Client, chainID uint16, 
 }
 
 // transfer create and send a transfer transaction
-func transfer(bjj *hermez.Wallet, c *client.Client, chainID uint16, toIdx hezCommon.Idx, amount *big.Int, fee hezCommon.FeeSelector) error {
-	// Get account to fetch the user idx, nonce and balance
-	ac, err := c.GetAccount(bjj.HezAddress, hermez.EthToken.TokenID)
-	if err != nil {
-		return err
-	}
-	ethAc, err := ac.Accounts.GetAccount(hermez.EthToken.TokenID)
-	if err != nil {
-		return err
-	}
-	logger.Info("Account", logger.Params{"address": bjj.HezAddress, "address_idx": ethAc.Idx})
+func transfer(bjj *hermez.Wallet, c *client.Client, chainID uint16, toIdx hezCommon.Idx,
+	amount *big.Int, fee hezCommon.FeeSelector) error {
 
-	// Create the transaction (TransferToBjj)
-	balance := ac.Accounts[0].Balance
-	if balance.Cmp(amount) < 0 {
-		return errors.E("invalid amount", errors.Params{"balance": balance, "amount": amount})
-	}
+	// Get account idx, nonce and check the balance
+	token := hermez.EthToken
+	idx, nonce, err := getAccountInfo(c, bjj.HezAddress, amount, token.TokenID)
 
-	idx := hezCommon.Idx(ethAc.Idx)
 	tx, err := hermez.CreateTransfer(
 		chainID,
 		toIdx,
 		amount,
 		bjj.PrivateKey,
 		idx,
-		ethAc.Token.TokenID,
-		ethAc.Nonce,
+		token.TokenID,
+		nonce,
 		fee,
 	)
 	if err != nil {
@@ -243,32 +236,20 @@ func transfer(bjj *hermez.Wallet, c *client.Client, chainID uint16, toIdx hezCom
 }
 
 // exit create and send a transfer exit transaction
-func exit(bjj *hermez.Wallet, c *client.Client, chainID uint16, amount *big.Int, fee hezCommon.FeeSelector) error {
-	// Get account to fetch the user idx, nonce and balance
-	ac, err := c.GetAccount(bjj.HezAddress, hermez.EthToken.TokenID)
-	if err != nil {
-		return err
-	}
-	ethAc, err := ac.Accounts.GetAccount(hermez.EthToken.TokenID)
-	if err != nil {
-		return err
-	}
-	logger.Info("Account", logger.Params{"address": bjj.HezAddress, "address_idx": ethAc.Idx})
+func exit(bjj *hermez.Wallet, c *client.Client, chainID uint16, amount *big.Int,
+	fee hezCommon.FeeSelector) error {
 
-	// Create the transaction (TransferToBjj)
-	balance := ac.Accounts[0].Balance
-	if balance.Cmp(amount) < 0 {
-		return errors.E("invalid amount", errors.Params{"balance": balance, "amount": amount})
-	}
+	// Get account idx, nonce and check the balance
+	token := hermez.EthToken
+	idx, nonce, err := getAccountInfo(c, bjj.HezAddress, amount, token.TokenID)
 
-	idx := hezCommon.Idx(ethAc.Idx)
 	tx, err := hermez.CreateExit(
 		chainID,
 		amount,
 		bjj.PrivateKey,
 		idx,
-		ethAc.Token.TokenID,
-		ethAc.Nonce,
+		token.TokenID,
+		nonce,
 		fee,
 	)
 	if err != nil {
