@@ -35,8 +35,7 @@ func run(nodeURL string, chainID uint16) error {
 		return err
 	}
 
-	//mnemonic := "seat mandate concert notable miss worth bottom inquiry find raven seat pilot office foam unique"
-	mnemonic := "butter embrace sunny tilt soap where soul finish shop west rough flock"
+	mnemonic := "seat mandate concert notable miss worth bottom inquiry find raven seat pilot office foam unique"
 
 	// Increase the wallet index to generate a new wallet based
 	// in the bip39, starting from zero
@@ -67,7 +66,7 @@ func run(nodeURL string, chainID uint16) error {
 	// Create a transfer to baby jubjub address
 	toBJJAddr := "hez:rkv1d1K9P9sNW9AxbndYL7Ttgtqros4Rwgtw9ewJ-S_b"
 	amount := big.NewInt(1000)
-	err = transferToBjj(bjj, c, chainID, toBJJAddr, amount, 231)
+	err = transferToBjj(bjj, c, chainID, toBJJAddr, amount, 232)
 	if err != nil {
 		return err
 	}
@@ -76,7 +75,7 @@ func run(nodeURL string, chainID uint16) error {
 	// Create a transfer to ethereum address
 	toEthAddr := "0xd9391B20559777E1b94954Ed84c28541E35bFEb8"
 	amount = big.NewInt(1001)
-	err = transferToEthAddress(bjj, c, chainID, toEthAddr, amount, 231)
+	err = transferToEthAddress(bjj, c, chainID, toEthAddr, amount, 232)
 	if err != nil {
 		return err
 	}
@@ -85,7 +84,7 @@ func run(nodeURL string, chainID uint16) error {
 	// Create a transfer to idx address
 	toIdx := hezCommon.Idx(1276)
 	amount = big.NewInt(1002)
-	err = transfer(bjj, c, chainID, toIdx, amount, 231)
+	err = transfer(bjj, c, chainID, toIdx, amount, 232)
 	if err != nil {
 		return err
 	}
