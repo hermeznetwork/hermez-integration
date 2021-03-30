@@ -35,7 +35,7 @@ func run(nodeURL string, chainID uint16) error {
 		return err
 	}
 
-	mnemonic := "seat mandate concert notable miss worth bottom inquiry find raven seat pilot office foam unique"
+	mnemonic := "butter embrace sunny tilt soap where soul finish shop west rough flock"
 
 	// Increase the wallet index to generate a new wallet based
 	// in the bip39, starting from zero
