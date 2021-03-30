@@ -331,9 +331,6 @@ var (
 )
 
 func Test_run(t *testing.T) {
-	nodeURL := "https://hermez.io"
-	chainID := uint16(5)
-
 	gock.New(nodeURL).
 		Get("v1/transactions-history").
 		Reply(200).

@@ -3,62 +3,48 @@ package main
 import (
 	"encoding/hex"
 	"math/big"
+	"time"
 
 	"github.com/Pantani/errors"
 	"github.com/Pantani/logger"
 	"github.com/hermeznetwork/hermez-integration/client"
 	"github.com/hermeznetwork/hermez-integration/hermez"
 	hezCommon "github.com/hermeznetwork/hermez-node/common"
-	"github.com/iden3/go-iden3-crypto/babyjub"
+)
+
+const (
+	// Rinkeby chain id
+	chainID = uint16(4)
+	nodeURL = "https://api.testnet.hermez.io"
 )
 
 func main() {
-	// Rinkeby chain id
-	chainID := uint16(4)
-	err := run("http://localhost:8086", chainID)
+	err := run(nodeURL, chainID)
 	if err != nil {
 		logger.Fatal(err)
 	}
 }
 
 func run(nodeURL string, chainID uint16) error {
-	// wallet configs
-	mnemonic := "seat mandate concert notable miss worth bottom inquiry find raven seat pilot office foam unique"
-	toBjjAddr := "hez:rkv1d1K9P9sNW9AxbndYL7Ttgtqros4Rwgtw9ewJ-S_b"
-	amount := big.NewInt(100)
+	// create a new Hermez node client
+	c := client.New(nodeURL)
+
+	// track incoming deposits
+	err := deposits(c)
+	if err != nil {
+		return err
+	}
+
+	//mnemonic := "seat mandate concert notable miss worth bottom inquiry find raven seat pilot office foam unique"
+	mnemonic := "butter embrace sunny tilt soap where soul finish shop west rough flock"
 
 	// Increase the wallet index to generate a new wallet based
 	// in the bip39, starting from zero
 	walletIndex := 0
 
-	// Create a wallet
-	bjj, err := hermez.CreateBJJFromEthAddr(mnemonic, walletIndex)
-	if err != nil {
-		return err
-	}
-
-	// Create the Baby Jubjub hez address
-	compressPk := bjj.Public().Compress().String()
-	b, err := hex.DecodeString(compressPk)
-	if err != nil {
-		return err
-	}
-	address := hermez.NewHezBJJ(bjj.Public().Compress())
-	pkBuf := [hermez.PkLength]byte(bjj)
-
-	// Create the Hermez hez address
-	pkBytes := hezCommon.SwapEndianness(b)
-	var pkComp babyjub.PublicKeyComp
-	copy(pkComp[:], pkBytes[:])
-
-	logger.Info("BJJ Create", logger.Params{
-		"address_encoded": address,
-		"address_hex":     "0x" + pkComp.String(),
-		"private key":     "0x" + hex.EncodeToString(pkBuf[:]),
-	})
-
-	// The accounts must generate one for each token for the same wallet, calling the
-	// smart contract methods:
+	// Create a baby jujub wallet based in the mnemonic and index
+	// After create the wallet, the accounts must generate into the network
+	// one for each token for the same wallet, calling the smart contract methods:
 	// - CreateAccountDeposit: creates a new token account for wallet
 	// - CreateAccountDepositTransfer: creates a new token account for wallet and transfer
 	// - TransferToBjj: Transfer to Bjj account, this transaction
@@ -67,46 +53,51 @@ func run(nodeURL string, chainID uint16) error {
 	//
 	// After creating the wallet we must create an account for each token, and we must get
 	// the id (IDX) and nonce for this account to create a transfer.
-	c := client.New(nodeURL)
-	ac, err := c.GetAccount(address, hermez.EthToken.TokenID)
+	bjj, err := hermez.NewBJJ(mnemonic, walletIndex)
 	if err != nil {
 		return err
 	}
-	ethAc, err := ac.Accounts.GetAccount(hermez.EthToken.TokenID)
+	pkBuf := [hermez.PkLength]byte(bjj.PrivateKey)
+	logger.Info("BJJ Create", logger.Params{
+		"address_encoded": bjj.HezAddress,
+		"address_hex":     "0x" + bjj.PublicKey.String(),
+		"private key":     "0x" + hex.EncodeToString(pkBuf[:]),
+	})
+
+	// Create a transfer to baby jubjub address
+	toBJJAddr := "hez:rkv1d1K9P9sNW9AxbndYL7Ttgtqros4Rwgtw9ewJ-S_b"
+	amount := big.NewInt(1000)
+	err = transferToBjj(bjj, c, chainID, toBJJAddr, amount, 231)
 	if err != nil {
 		return err
 	}
-	logger.Info("Account", logger.Params{"address": address, "address_idx": ethAc.Idx})
 
-	// Create the transaction (TransferToBjj)
-	balance := ac.Accounts[0].Balance
-	if balance.Cmp(amount) < 0 {
-		return errors.E("invalid amount", errors.Params{"balance": balance, "amount": amount})
-	}
-
-	idx := hezCommon.Idx(ethAc.Idx)
-	tx, err := hermez.CreateTx(
-		chainID,
-		toBjjAddr,
-		amount,
-		bjj,
-		idx,
-		ethAc.Token.TokenID,
-		ethAc.Nonce,
-		235,
-	)
+	time.Sleep(5 * time.Second)
+	// Create a transfer to ethereum address
+	toEthAddr := "0xd9391B20559777E1b94954Ed84c28541E35bFEb8"
+	amount = big.NewInt(1001)
+	err = transferToEthAddress(bjj, c, chainID, toEthAddr, amount, 231)
 	if err != nil {
 		return err
 	}
-	logger.Info("Tx Created", logger.Params{"hash": tx.TxID, "tx": tx})
 
-	// Send the transaction
-	hash, err := c.SendTransaction(*tx, hermez.EthToken)
+	time.Sleep(5 * time.Second)
+	// Create a transfer to idx address
+	toIdx := hezCommon.Idx(1276)
+	amount = big.NewInt(1002)
+	err = transfer(bjj, c, chainID, toIdx, amount, 231)
 	if err != nil {
 		return err
 	}
-	logger.Info("Tx Sent", logger.Params{"hash": hash})
 
+	time.Sleep(5 * time.Second)
+	// Create a exit transfer
+	amount = big.NewInt(2000)
+	return exit(bjj, c, chainID, amount, 231)
+}
+
+// deposits get last batch number and get the transactions
+func deposits(c *client.Client) error {
 	// Fetch the last batch for we can pulling the transactions
 	lastBatch, err := c.GetLastBatch()
 	if err != nil {
@@ -120,5 +111,176 @@ func run(nodeURL string, chainID uint16) error {
 		return err
 	}
 	logger.Info("Batch", logger.Params{"number": lastBatch.BatchNum, "batch": batch})
+	return nil
+}
+
+// transferToBjj create and send a transfer to baby jubjub transaction
+func transferToBjj(bjj *hermez.Wallet, c *client.Client, chainID uint16, toBjjAddr string, amount *big.Int, fee hezCommon.FeeSelector) error {
+	// Get account to fetch the user idx, nonce and balance
+	ac, err := c.GetAccount(bjj.HezAddress, hermez.EthToken.TokenID)
+	if err != nil {
+		return err
+	}
+	ethAc, err := ac.Accounts.GetAccount(hermez.EthToken.TokenID)
+	if err != nil {
+		return err
+	}
+	logger.Info("Account", logger.Params{"address": bjj.HezAddress, "address_idx": ethAc.Idx})
+
+	// Create the transaction (TransferToBjj)
+	balance := ac.Accounts[0].Balance
+	if balance.Cmp(amount) < 0 {
+		return errors.E("invalid amount", errors.Params{"balance": balance, "amount": amount})
+	}
+
+	idx := hezCommon.Idx(ethAc.Idx)
+	tx, err := hermez.CreateTransferToBjj(
+		chainID,
+		toBjjAddr,
+		amount,
+		bjj.PrivateKey,
+		idx,
+		ethAc.Token.TokenID,
+		ethAc.Nonce,
+		fee,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Send the transaction
+	hash, err := c.SendTransaction(*tx, hermez.EthToken)
+	if err != nil {
+		return err
+	}
+	logger.Info("Tx Sent", logger.Params{"hash": hash})
+	return nil
+}
+
+// transferToEthAddress create and send a transfer to ethereum address transaction
+func transferToEthAddress(bjj *hermez.Wallet, c *client.Client, chainID uint16, toEthAddr string, amount *big.Int, fee hezCommon.FeeSelector) error {
+	// Get account to fetch the user idx, nonce and balance
+	ac, err := c.GetAccount(bjj.HezAddress, hermez.EthToken.TokenID)
+	if err != nil {
+		return err
+	}
+	ethAc, err := ac.Accounts.GetAccount(hermez.EthToken.TokenID)
+	if err != nil {
+		return err
+	}
+	logger.Info("Account", logger.Params{"address": bjj.HezAddress, "address_idx": ethAc.Idx})
+
+	// Create the transaction (TransferToBjj)
+	balance := ac.Accounts[0].Balance
+	if balance.Cmp(amount) < 0 {
+		return errors.E("invalid amount", errors.Params{"balance": balance, "amount": amount})
+	}
+
+	idx := hezCommon.Idx(ethAc.Idx)
+	tx, err := hermez.CreateTransferToEthAddress(
+		chainID,
+		toEthAddr,
+		amount,
+		bjj.PrivateKey,
+		idx,
+		ethAc.Token.TokenID,
+		ethAc.Nonce,
+		fee,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Send the transaction
+	hash, err := c.SendTransaction(*tx, hermez.EthToken)
+	if err != nil {
+		return err
+	}
+	logger.Info("Tx Sent", logger.Params{"hash": hash})
+	return nil
+}
+
+// transfer create and send a transfer transaction
+func transfer(bjj *hermez.Wallet, c *client.Client, chainID uint16, toIdx hezCommon.Idx, amount *big.Int, fee hezCommon.FeeSelector) error {
+	// Get account to fetch the user idx, nonce and balance
+	ac, err := c.GetAccount(bjj.HezAddress, hermez.EthToken.TokenID)
+	if err != nil {
+		return err
+	}
+	ethAc, err := ac.Accounts.GetAccount(hermez.EthToken.TokenID)
+	if err != nil {
+		return err
+	}
+	logger.Info("Account", logger.Params{"address": bjj.HezAddress, "address_idx": ethAc.Idx})
+
+	// Create the transaction (TransferToBjj)
+	balance := ac.Accounts[0].Balance
+	if balance.Cmp(amount) < 0 {
+		return errors.E("invalid amount", errors.Params{"balance": balance, "amount": amount})
+	}
+
+	idx := hezCommon.Idx(ethAc.Idx)
+	tx, err := hermez.CreateTransfer(
+		chainID,
+		toIdx,
+		amount,
+		bjj.PrivateKey,
+		idx,
+		ethAc.Token.TokenID,
+		ethAc.Nonce,
+		fee,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Send the transaction
+	hash, err := c.SendTransaction(*tx, hermez.EthToken)
+	if err != nil {
+		return err
+	}
+	logger.Info("Tx Sent", logger.Params{"hash": hash})
+	return nil
+}
+
+// exit create and send a transfer exit transaction
+func exit(bjj *hermez.Wallet, c *client.Client, chainID uint16, amount *big.Int, fee hezCommon.FeeSelector) error {
+	// Get account to fetch the user idx, nonce and balance
+	ac, err := c.GetAccount(bjj.HezAddress, hermez.EthToken.TokenID)
+	if err != nil {
+		return err
+	}
+	ethAc, err := ac.Accounts.GetAccount(hermez.EthToken.TokenID)
+	if err != nil {
+		return err
+	}
+	logger.Info("Account", logger.Params{"address": bjj.HezAddress, "address_idx": ethAc.Idx})
+
+	// Create the transaction (TransferToBjj)
+	balance := ac.Accounts[0].Balance
+	if balance.Cmp(amount) < 0 {
+		return errors.E("invalid amount", errors.Params{"balance": balance, "amount": amount})
+	}
+
+	idx := hezCommon.Idx(ethAc.Idx)
+	tx, err := hermez.CreateExit(
+		chainID,
+		amount,
+		bjj.PrivateKey,
+		idx,
+		ethAc.Token.TokenID,
+		ethAc.Nonce,
+		fee,
+	)
+	if err != nil {
+		return err
+	}
+
+	// Send the transaction
+	hash, err := c.SendTransaction(*tx, hermez.EthToken)
+	if err != nil {
+		return err
+	}
+	logger.Info("Tx Sent", logger.Params{"hash": hash})
 	return nil
 }
