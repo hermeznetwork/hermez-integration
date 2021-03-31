@@ -25,9 +25,10 @@ const (
 // Wallet represents a wallet object with a private key,
 // public key and a baby jubjub hez address
 type Wallet struct {
-	PrivateKey babyjub.PrivateKey
-	PublicKey  babyjub.PublicKeyComp
-	HezAddress string
+	PrivateKey    babyjub.PrivateKey
+	PublicKey     babyjub.PublicKeyComp
+	HezBjjAddress string
+	HezEthAddress string
 }
 
 // NewBJJ create a baby jubjub address from the mnemonic
@@ -35,8 +36,6 @@ type Wallet struct {
 // with a private key, public key and a baby jubjub hez
 // address and a error if occurs.
 func NewBJJ(mnemonic string, index int) (*Wallet, error) {
-	var sk babyjub.PrivateKey
-	var pk babyjub.PublicKeyComp
 	w, err := hdwallet.NewFromMnemonic(mnemonic)
 	if err != nil {
 		return nil, errors.E("New wallet error", err)
@@ -48,6 +47,7 @@ func NewBJJ(mnemonic string, index int) (*Wallet, error) {
 	if err != nil {
 		return nil, errors.E("Path derivation error", err)
 	}
+	hezEthAddress := "hez:" + ethAccount.Address.String()
 
 	// Sign message
 	signature, err := w.SignText(ethAccount, []byte(msg))
@@ -56,32 +56,35 @@ func NewBJJ(mnemonic string, index int) (*Wallet, error) {
 	}
 
 	signature[len(signature)-1] += 27
+	sigEncoded := hex.EncodeToString(signature)
 
 	// Hash signature
 	var sb strings.Builder
 	sb.WriteString("0x")
-	sb.WriteString(hex.EncodeToString(signature))
+	sb.WriteString(sigEncoded)
 	hash := ethCrypto.Keccak256([]byte(sb.String()))
 
+	var sk babyjub.PrivateKey
 	copy(sk[:], hash[:])
 
 	// Create the Baby Jubjub hez address
 	compressPk := sk.Public().Compress().String()
 	b, err := hex.DecodeString(compressPk)
 	if err != nil {
-		return nil, errors.E("Decode pk error", err)
+		return nil, errors.E("Decode compress pk error", err)
 	}
-	hezAddress := NewHezBJJ(sk.Public().Compress())
+	hezBjjAddress := NewHezBJJ(sk.Public().Compress())
 
 	// Create the Hermez hez address
 	pkBytes := hezCommon.SwapEndianness(b)
-	var pkComp babyjub.PublicKeyComp
-	copy(pkComp[:], pkBytes[:])
+	var pk babyjub.PublicKeyComp
+	copy(pk[:], pkBytes[:])
 
 	return &Wallet{
-		PrivateKey: sk,
-		PublicKey:  pk,
-		HezAddress: hezAddress,
+		PrivateKey:    sk,
+		PublicKey:     pk,
+		HezBjjAddress: hezBjjAddress,
+		HezEthAddress: hezEthAddress,
 	}, nil
 }
 
