@@ -53,6 +53,7 @@ func run(nodeURL string, chainID uint16) error {
 		return err
 	}
 
+	//mnemonic := "seat mandate concert notable miss worth bottom inquiry find raven seat pilot office foam unique"
 	mnemonic := "butter embrace sunny tilt soap where soul finish shop west rough flock"
 
 	// Increase the wallet index to generate a new wallet based
@@ -76,9 +77,9 @@ func run(nodeURL string, chainID uint16) error {
 	}
 	pkBuf := [hermez.PkLength]byte(bjj.PrivateKey)
 	logger.Info("BJJ Create", logger.Params{
-		"address_encoded": bjj.HezAddress,
-		"address_hex":     "0x" + bjj.PublicKey.String(),
-		"private key":     "0x" + hex.EncodeToString(pkBuf[:]),
+		"hez_eth_address": bjj.HezEthAddress,
+		"hez_bjj_address": bjj.HezBjjAddress,
+		"private_key":     "0x" + hex.EncodeToString(pkBuf[:]),
 	})
 
 	// Create a transfer to baby jubjub address
@@ -136,7 +137,7 @@ func transferToBjj(bjj *hermez.Wallet, c *client.Client, chainID uint16, toBjjAd
 	amount *big.Int, fee hezCommon.FeeSelector) error {
 	// Get account idx, nonce and check the balance
 	token := hermez.EthToken
-	idx, nonce, err := getAccountInfo(c, bjj.HezAddress, amount, token.TokenID)
+	idx, nonce, err := getAccountInfo(c, bjj.HezBjjAddress, amount, token.TokenID)
 
 	tx, err := hermez.CreateTransferToBjj(
 		chainID,
@@ -163,14 +164,14 @@ func transferToBjj(bjj *hermez.Wallet, c *client.Client, chainID uint16, toBjjAd
 
 // getAccountInfo fetches account from network, check the balance and returns
 // the idx, nonce and an error if occurs
-func getAccountInfo(c *client.Client, hezAddress string, amount *big.Int,
+func getAccountInfo(c *client.Client, HezBjjAddress string, amount *big.Int,
 	tokenID hezCommon.TokenID) (hezCommon.Idx, hezCommon.Nonce, error) {
 
 	idx := hezCommon.Idx(0)
 	nonce := hezCommon.Nonce(0)
 
 	// Get account to fetch the user idx, nonce and balance
-	ac, err := c.GetAccount(hezAddress, tokenID)
+	ac, err := c.GetAccount(HezBjjAddress, tokenID)
 	if err != nil {
 		return idx, nonce, err
 	}
@@ -178,7 +179,7 @@ func getAccountInfo(c *client.Client, hezAddress string, amount *big.Int,
 	if err != nil {
 		return idx, nonce, err
 	}
-	logger.Info("Account", logger.Params{"address": hezAddress, "address_idx": ethAc.Idx})
+	logger.Info("Account", logger.Params{"address": HezBjjAddress, "address_idx": ethAc.Idx})
 
 	idx = hezCommon.Idx(ethAc.Idx)
 	nonce = ethAc.Nonce
@@ -197,7 +198,7 @@ func transferToEthAddress(bjj *hermez.Wallet, c *client.Client, chainID uint16,
 
 	// Get account idx, nonce and check the balance
 	token := hermez.EthToken
-	idx, nonce, err := getAccountInfo(c, bjj.HezAddress, amount, token.TokenID)
+	idx, nonce, err := getAccountInfo(c, bjj.HezBjjAddress, amount, token.TokenID)
 
 	tx, err := hermez.CreateTransferToEthAddress(
 		chainID,
@@ -228,7 +229,7 @@ func transfer(bjj *hermez.Wallet, c *client.Client, chainID uint16, toIdx hezCom
 
 	// Get account idx, nonce and check the balance
 	token := hermez.EthToken
-	idx, nonce, err := getAccountInfo(c, bjj.HezAddress, amount, token.TokenID)
+	idx, nonce, err := getAccountInfo(c, bjj.HezBjjAddress, amount, token.TokenID)
 
 	tx, err := hermez.CreateTransfer(
 		chainID,
@@ -259,7 +260,7 @@ func exit(bjj *hermez.Wallet, c *client.Client, chainID uint16, amount *big.Int,
 
 	// Get account idx, nonce and check the balance
 	token := hermez.EthToken
-	idx, nonce, err := getAccountInfo(c, bjj.HezAddress, amount, token.TokenID)
+	idx, nonce, err := getAccountInfo(c, bjj.HezBjjAddress, amount, token.TokenID)
 
 	tx, err := hermez.CreateExit(
 		chainID,
