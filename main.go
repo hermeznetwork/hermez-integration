@@ -82,10 +82,27 @@ func run(nodeURL string, chainID uint16) error {
 		"private_key":     "0x" + hex.EncodeToString(pkBuf[:]),
 	})
 
+	// Calculate fee amount bases into the transaction fee table
+	// https://docs.hermez.io/#/developers/protocol/hermez-protocol/fee-table?id=transaction-fee-table
+	amount := big.NewInt(7000000000000000)
+	fee := hezCommon.FeeSelector(126) // 10.2%
+	feeAmount, err := hezCommon.CalcFeeAmount(amount, fee)
+	if err != nil {
+		return err
+	}
+
+	logger.Info("Fee", logger.Params{
+		"amount_wei":     amount.String(),
+		"amount_eth":     hermez.WeiToEther(amount).String(),
+		"fee_selector":   fee,
+		"fee_percentage": fee.Percentage(),
+		"fee_amount_wei": feeAmount.String(),
+		"fee_amount_eth": hermez.WeiToEther(feeAmount).String(),
+	})
+
 	// Create a transfer to baby jubjub address
 	toBJJAddr := "hez:rkv1d1K9P9sNW9AxbndYL7Ttgtqros4Rwgtw9ewJ-S_b"
-	amount := big.NewInt(1000)
-	err = transferToBjj(bjj, c, chainID, toBJJAddr, amount, 232)
+	err = transferToBjj(bjj, c, chainID, toBJJAddr, amount, fee)
 	if err != nil {
 		return err
 	}
@@ -93,8 +110,7 @@ func run(nodeURL string, chainID uint16) error {
 	time.Sleep(5 * time.Second)
 	// Create a transfer to ethereum address
 	toEthAddr := "0xd9391B20559777E1b94954Ed84c28541E35bFEb8"
-	amount = big.NewInt(1001)
-	err = transferToEthAddress(bjj, c, chainID, toEthAddr, amount, 232)
+	err = transferToEthAddress(bjj, c, chainID, toEthAddr, amount, fee)
 	if err != nil {
 		return err
 	}
@@ -102,16 +118,14 @@ func run(nodeURL string, chainID uint16) error {
 	time.Sleep(5 * time.Second)
 	// Create a transfer to idx address
 	toIdx := hezCommon.Idx(1276)
-	amount = big.NewInt(1002)
-	err = transfer(bjj, c, chainID, toIdx, amount, 232)
+	err = transfer(bjj, c, chainID, toIdx, amount, fee)
 	if err != nil {
 		return err
 	}
 
 	time.Sleep(5 * time.Second)
 	// Create a exit transfer
-	amount = big.NewInt(2000)
-	return exit(bjj, c, chainID, amount, 231)
+	return exit(bjj, c, chainID, amount, fee)
 }
 
 // deposits get last batch number and get the transactions
