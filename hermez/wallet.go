@@ -4,10 +4,12 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"math/big"
 	"strings"
 
 	"github.com/Pantani/errors"
 	ethCrypto "github.com/ethereum/go-ethereum/crypto"
+	"github.com/ethereum/go-ethereum/params"
 	hezCommon "github.com/hermeznetwork/hermez-node/common"
 	"github.com/iden3/go-iden3-crypto/babyjub"
 	hdwallet "github.com/miguelmota/go-ethereum-hdwallet"
@@ -126,4 +128,15 @@ func HezStrToBJJ(s string) (babyjub.PublicKeyComp, error) {
 	}
 	bjjComp := babyjub.PublicKeyComp(bjjBytes)
 	return bjjComp, nil
+}
+
+// WeiToEther converts a wei value (*big.Int) to a ether value (*big.Float)
+func WeiToEther(wei *big.Int) *big.Float {
+	f := new(big.Float)
+	f.SetPrec(236)
+	f.SetMode(big.ToNearestEven)
+	fWei := new(big.Float)
+	fWei.SetPrec(236)
+	fWei.SetMode(big.ToNearestEven)
+	return f.Quo(fWei.SetInt(wei), big.NewFloat(params.Ether))
 }
