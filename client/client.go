@@ -26,17 +26,20 @@ func New(nodeURL string) *Client {
 }
 
 // GetAccount get an account info based in the hermez-integration address and the token id
-func (c *Client) GetAccount(bjjAddress string, tokenID hezCommon.TokenID) (*AccountAPI, error) {
+func (c *Client) GetAccount(bjjAddress, hezEthAddress *string, tokenID hezCommon.TokenID) (*AccountAPI, error) {
+	values := url.Values{}
+	if bjjAddress == nil && hezEthAddress == nil {
+		return nil, errors.E("bjjAddress or hezEthAddress must be defined")
+	}
+	if bjjAddress != nil {
+		values["BJJ"] = []string{*bjjAddress}
+	}
+	if hezEthAddress != nil {
+		values["hezEthAddress"] = []string{*hezEthAddress}
+	}
+
 	var result *AccountAPI
-	err := c.request.GetWithCache(
-		&result,
-		"v1/accounts",
-		url.Values{
-			"BJJ":      {bjjAddress},
-			"tokenIds": {tokenID.BigInt().String()},
-		},
-		time.Hour*1,
-	)
+	err := c.request.GetWithCache(&result, "v1/accounts", values, time.Hour*1)
 	if err != nil {
 		return nil, err
 	}
@@ -59,6 +62,26 @@ func (c *Client) GetBatchTxs(batchNum hezCommon.BatchNum) (*TxAPI, error) {
 			"order":    {"ASC"},
 		},
 		time.Hour*1,
+	)
+}
+
+// GetTx get a transaction by tx ID
+func (c *Client) GetTx(txID string) (*TxHistory, error) {
+	var result *TxHistory
+	return result, c.request.Get(
+		&result,
+		"v1/transactions-history/"+txID,
+		nil,
+	)
+}
+
+// GetPoolTx get a pool transaction by tx ID
+func (c *Client) GetPoolTx(txID string) (*TxHistory, error) {
+	var result *TxHistory
+	return result, c.request.Get(
+		&result,
+		"v1/transactions-pool/"+txID,
+		nil,
 	)
 }
 

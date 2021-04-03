@@ -11,7 +11,7 @@ import (
 	ethCommon "github.com/ethereum/go-ethereum/common"
 	"github.com/hermeznetwork/hermez-node/api/apitypes"
 	hezCommon "github.com/hermeznetwork/hermez-node/common"
-	"github.com/hermeznetwork/hermez-node/db/historydb"
+	"github.com/iden3/go-iden3-crypto/babyjub"
 )
 
 type (
@@ -40,10 +40,41 @@ type (
 		PendingItems uint64   `json:"pendingItems"`
 	}
 
+	// TxHistory is a representation of a transaction history API request.
+	TxHistory struct {
+		Amount           apitypes.BigIntStr      `json:"amount"`
+		Fee              hezCommon.FeeSelector   `json:"fee"`
+		FromIdx          StrHezIdx               `json:"fromAccountIndex"`
+		FromEthAddr      apitypes.HezEthAddr     `json:"fromHezEthereumAddress"`
+		FromBJJ          apitypes.HezBJJ         `json:"fromBJJ"`
+		TxID             hezCommon.TxID          `json:"id"`
+		BatchNum         hezCommon.BatchNum      `json:"batchNum"`
+		L1orL2           string                  `json:"L1orL2"`
+		L1Info           interface{}             `json:"L1Info"`
+		L2Info           interface{}             `json:"L2Info"`
+		Nonce            hezCommon.Nonce         `json:"nonce"`
+		RequestAmount    apitypes.BigIntStr      `json:"requestAmount"`
+		RequestFee       hezCommon.FeeSelector   `json:"requestFee"`
+		RequestFromIdx   StrHezIdx               `json:"requestFromAccountIndex"`
+		RequestNonce     hezCommon.Nonce         `json:"requestNonce"`
+		RequestToIdx     hezCommon.Idx           `json:"requestToAccountIndex"`
+		RequestToBJJ     babyjub.PublicKeyComp   `json:"requestToBJJ"`
+		RequestToEthAddr ethCommon.Address       `json:"requestToHezEthereumAddress"`
+		RequestTokenID   hezCommon.TokenID       `json:"requestTokenId"`
+		Signature        string                  `json:"signature"`
+		State            hezCommon.PoolL2TxState `json:"state"`
+		Timestamp        time.Time               `json:"timestamp"`
+		ToIdx            StrHezIdx               `json:"toAccountIndex"`
+		ToEthAddr        apitypes.HezEthAddr     `json:"toHezEthereumAddress"`
+		ToBJJ            apitypes.HezBJJ         `json:"toBjj"`
+		TokenID          Token                   `json:"token"`
+		Type             hezCommon.TxType        `json:"type"`
+	}
+
 	// TxAPI is a representation of a tx history API response.
 	TxAPI struct {
-		Txs          []historydb.TxAPI `json:"transactions"`
-		PendingItems uint64            `json:"pendingItems"`
+		Txs          []TxHistory `json:"transactions"`
+		PendingItems uint64      `json:"pendingItems"`
 	}
 
 	// BatchAPI is a representation of a batches API response.
