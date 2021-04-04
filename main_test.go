@@ -2,6 +2,7 @@ package main
 
 import (
 	"testing"
+	"time"
 
 	"gopkg.in/h2non/gock.v1"
 )
@@ -351,7 +352,7 @@ func Test_run(t *testing.T) {
 		Reply(200).
 		BodyString(hash)
 
-	if err := run(nodeURL, chainID); err != nil {
+	if err := run(nodeURL, chainID, 10*time.Second); err != nil {
 		t.Fatalf("run() error = %v", err)
 	}
 }
