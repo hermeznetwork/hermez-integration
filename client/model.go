@@ -67,7 +67,7 @@ type (
 		ToIdx            StrHezIdx               `json:"toAccountIndex"`
 		ToEthAddr        apitypes.HezEthAddr     `json:"toHezEthereumAddress"`
 		ToBJJ            apitypes.HezBJJ         `json:"toBjj"`
-		TokenID          Token                   `json:"token"`
+		Token            hezCommon.Token         `json:"token"`
 		Type             hezCommon.TxType        `json:"type"`
 	}
 
@@ -85,9 +85,12 @@ type (
 
 	// TokenAPI is a representation of a tokens API response.
 	TokenAPI struct {
-		Tokens       []Token `json:"tokens"`
-		PendingItems uint64  `json:"pendingItems"`
+		Tokens       Tokens `json:"tokens"`
+		PendingItems uint64 `json:"pendingItems"`
 	}
+
+	// Tokens is a representation of a list of tokens.
+	Tokens []hezCommon.Token
 
 	// Token is a representation of a tokens API object.
 	Token struct {
@@ -173,8 +176,8 @@ func (s *StrHezIdx) UnmarshalText(text []byte) error {
 	return nil
 }
 
-// GetAccount get account by token ID
-func (acs *Accounts) GetAccount(tokenID hezCommon.TokenID) (Account, error) {
+// GetFirstAccount get the first account by token ID
+func (acs *Accounts) GetFirstAccount(tokenID hezCommon.TokenID) (Account, error) {
 	for _, ac := range *acs {
 		if ac.Token.TokenID == tokenID {
 			return ac, nil
@@ -182,4 +185,15 @@ func (acs *Accounts) GetAccount(tokenID hezCommon.TokenID) (Account, error) {
 	}
 	return Account{}, errors.E("account not found",
 		errors.Params{"token_id": tokenID})
+}
+
+// GetToken get a token by symbol
+func (ts *Tokens) GetToken(symbol string) (hezCommon.Token, error) {
+	for _, t := range *ts {
+		if t.Symbol == symbol {
+			return t, nil
+		}
+	}
+	return hezCommon.Token{}, errors.E("token not supported",
+		errors.Params{"symbol": symbol})
 }
