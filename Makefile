@@ -27,14 +27,6 @@ help: Makefile
 	@sed -n 's/^##//p' $< | column -t -s ':' |  sed -e 's/^/ /'
 	@echo
 
-## test: Run the application check and all tests.
-test: govet golint test-unit
-
-## test-unit: Run all unit tests.
-test-unit:
-	@echo "  >  Running tests"
-	$(GOENVVARS) go test -race -p 1 -failfast -timeout 300s -v ./...
-
 ## gofmt: Run `go fmt` for all go files.
 gofmt:
 	@echo "  >  Format all go files"
@@ -62,7 +54,7 @@ clean:
 
 ## build: Build the project.
 build: install
-	@echo "  >  Building Hermez binary..."
+	@echo "  >  Building the integration example binary..."
 	$(GOENVVARS) go build -o $(GOBIN)/$(GOBINARY) $(GOCMD)
 
 ## install: Install missing dependencies. Runs `go get` internally. e.g; make install get=github.com/foo/bar
