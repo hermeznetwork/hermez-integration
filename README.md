@@ -24,3 +24,7 @@ $ make run
 ```
 
 _This repository cannot be used as a go library. It's only examples of how to implement the integration in Go._
+
+### Node 
+
+The information about deploying a node as a synchronizer can be found [here](node/README.md)
