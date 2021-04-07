@@ -7,7 +7,6 @@ import (
 	"math/rand"
 	"os"
 	"os/signal"
-	"strings"
 	"syscall"
 	"time"
 
@@ -38,7 +37,7 @@ func main() {
 func run(nodeURL string, chainID uint16, poolingInterval time.Duration) error {
 	// init context
 	ctx, cancel := context.WithCancel(context.Background())
-	grp, ctx := errgroup.WithContext(ctx)
+	grp, gctx := errgroup.WithContext(ctx)
 	defer cancel()
 
 	// create a new Hermez node client
@@ -77,7 +76,7 @@ func run(nodeURL string, chainID uint16, poolingInterval time.Duration) error {
 			return err
 		}
 		pkBuf := [hermez.PkLength]byte(bjj.PrivateKey)
-		logger.Info("User Wallet Create", logger.Params{
+		logger.Info("User Wallet", logger.Params{
 			"index":           walletIndex,
 			"hez_eth_address": bjj.HezEthAddress,
 			"hez_bjj_address": bjj.HezBjjAddress,
@@ -94,15 +93,15 @@ func run(nodeURL string, chainID uint16, poolingInterval time.Duration) error {
 	// the user has already Ether in Hermez Network
 	outWalletMnemonic := "butter embrace sunny tilt soap where soul finish shop west rough flock"
 	// get the first index wallet from the mnemonic (https://iancoleman.io/bip39)
-	walletIndex := 0
+	outWalletIndex := 0
 
 	// Create a baby jubjub wallet based in the mnemonic and index
-	bjj, err := hermez.NewBJJ(outWalletMnemonic, walletIndex)
+	bjj, err := hermez.NewBJJ(outWalletMnemonic, outWalletIndex)
 	if err != nil {
 		return err
 	}
 	pkBuf := [hermez.PkLength]byte(bjj.PrivateKey)
-	logger.Info("Out Wallet Create", logger.Params{
+	logger.Info("Out Wallet", logger.Params{
 		"hez_eth_address": bjj.HezEthAddress,
 		"hez_bjj_address": bjj.HezBjjAddress,
 		"private_key":     "0x" + hex.EncodeToString(pkBuf[:]),
@@ -112,7 +111,7 @@ func run(nodeURL string, chainID uint16, poolingInterval time.Duration) error {
 	// be greater than the minimum fee value the coordinator accepts. The fee value in the
 	// L2 transaction apply a factor encoded by an index from the transaction fee table:
 	// https://docs.hermez.io/#/developers/protocol/hermez-protocol/fee-table?id=transaction-fee-table
-	amount := big.NewInt(6000000000000000)
+	amount := big.NewInt(5920000000000000)
 	fee := hezCommon.FeeSelector(126) // 10.2%
 	feeAmount, err := hezCommon.CalcFeeAmount(amount, fee)
 	if err != nil {
@@ -128,26 +127,31 @@ func run(nodeURL string, chainID uint16, poolingInterval time.Duration) error {
 		"fee_amount_wei": feeAmount.String(),
 		"fee_amount_eth": hermez.WeiToEther(feeAmount).String(),
 	})
+	// Get account idx, nonce and check the balance
+	fromIdx, nonce, err := transaction.GetAccountInfo(c, &bjj.HezBjjAddress, nil, ethToken.TokenID)
+	if err != nil {
+		return err
+	}
 
 	// Create a transfer to the first baby jubjub user address
 	time.Sleep(3 * time.Second)
 	rand.Seed(time.Now().Unix())
 	bjjIndex := rand.Intn(len(bjjUserWallets))
 	toHezBjjAddr := bjjUserWallets[bjjIndex]
-	txID, err := transaction.TransferToBjj(bjj, c, chainID, toHezBjjAddr, amount, fee, ethToken)
+	txID, err := transaction.TransferToBjj(bjj, c, chainID, fromIdx, toHezBjjAddr, amount, fee, ethToken, nonce)
 	if err != nil {
 		return err
 	}
 	hashes = append(hashes, txID)
 	logger.Info("transferToBjj", logger.Params{"tx_id": txID})
 
-	// Create a transfer to the second user ethereum address
+	//  Create a transfer to the second user ethereum address *****
+	nonce++
 	time.Sleep(3 * time.Second)
 	rand.Seed(time.Now().Unix())
 	ethIndex := rand.Intn(len(ethUserWallets))
 	toHezEthAddr := ethUserWallets[ethIndex]
-	toHezEthAddr = strings.Replace(toHezEthAddr, "hez:", "", -1)
-	txID, err = transaction.TransferToEthAddress(bjj, c, chainID, toHezEthAddr, amount, fee, ethToken)
+	txID, err = transaction.TransferToEthAddress(bjj, c, chainID, fromIdx, toHezEthAddr, amount, fee, ethToken, nonce)
 	if err != nil {
 		return err
 	}
@@ -156,21 +160,23 @@ func run(nodeURL string, chainID uint16, poolingInterval time.Duration) error {
 
 	// Create a transfer to an already existing account into the
 	// network using the idx (Merkle tree index).
-	toHezAddr := "hez:0xd9391B20559777E1b94954Ed84c28541E35bFEb8"
-	toIdx, _, err := transaction.GetAccountInfo(c, nil, &toHezAddr, amount, ethToken.TokenID)
+	nonce++
+	toHezAddr := "hez:0xbA00D84Ddbc8cAe67C5800a52496E47A8CaFcd27"
+	toIdx, _, err := transaction.GetAccountInfo(c, nil, &toHezAddr, ethToken.TokenID)
 	if err != nil {
 		return err
 	}
-	txID, err = transaction.Transfer(bjj, c, chainID, toIdx, amount, fee, ethToken)
+	txID, err = transaction.Transfer(bjj, c, chainID, fromIdx, toIdx, amount, fee, ethToken, nonce)
 	if err != nil {
 		return err
 	}
 	hashes = append(hashes, txID)
 	logger.Info("transfer to idx", logger.Params{"tx_id": txID})
 
-	// Transfer tokens from an account to the exit tree, L2 --> L1
+	//Transfer tokens from an account to the exit tree, L2 --> L1
+	nonce++
 	time.Sleep(3 * time.Second)
-	txID, err = transaction.Exit(bjj, c, chainID, amount, fee, ethToken)
+	txID, err = transaction.Exit(bjj, c, chainID, fromIdx, amount, fee, ethToken, nonce)
 	if err != nil {
 		return err
 	}
@@ -180,21 +186,19 @@ func run(nodeURL string, chainID uint16, poolingInterval time.Duration) error {
 	grp.Go(track.Txs(c, hashes, poolingInterval))
 
 	// wait for SIGINT/SIGTERM.
-	waiter := make(chan os.Signal, 1)
-	signal.Notify(waiter, syscall.SIGINT, syscall.SIGTERM)
+	quit := make(chan os.Signal, 1)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	defer signal.Stop(quit)
 	select {
-	case sig := <-waiter:
-		logger.Info("waiter signal", logger.Params{"signal": sig})
+	case <-quit:
 		cancel()
-	case <-ctx.Done():
-		logger.Info("context done")
-		if err := ctx.Err(); err != nil {
-			return errors.E("context error", err)
+		logger.Info("Exiting gracefully")
+		if err := grp.Wait(); err != nil {
+			return errors.E("error group failure", err)
 		}
+	case <-gctx.Done():
+		logger.Info("context done")
+		return gctx.Err()
 	}
-	if err := grp.Wait(); err != nil {
-		return errors.E("error group failure", err)
-	}
-	logger.Info("Exiting gracefully")
 	return nil
 }

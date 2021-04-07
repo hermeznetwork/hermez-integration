@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/Pantani/errors"
+	"github.com/Pantani/logger"
 	"github.com/Pantani/request"
 	hezCommon "github.com/hermeznetwork/hermez-node/common"
 )
@@ -28,26 +29,31 @@ func New(nodeURL string) *Client {
 // GetAccount get an account info based in the hermez-integration address and the token id
 func (c *Client) GetAccount(bjjAddress, hezEthAddress *string, tokenID hezCommon.TokenID) (*AccountAPI, error) {
 	values := url.Values{}
+	params := logger.Params{"token_id": tokenID}
 	if bjjAddress == nil && hezEthAddress == nil {
 		return nil, errors.E("bjjAddress or hezEthAddress must be defined")
 	}
 	if bjjAddress != nil {
 		values["BJJ"] = []string{*bjjAddress}
+		params["bjj_address"] = *bjjAddress
 	}
 	if hezEthAddress != nil {
 		values["hezEthAddress"] = []string{*hezEthAddress}
+		params["eth_address"] = *hezEthAddress
 	}
 
 	var result *AccountAPI
-	err := c.request.GetWithCache(&result, "v1/accounts", values, time.Hour*1)
+	err := c.request.Get(&result, "v1/accounts", values)
 	if err != nil {
 		return nil, err
 	}
 
 	if len(result.Accounts) == 0 {
-		return nil, errors.E("account not registered",
-			errors.Params{"bjj_address": bjjAddress, "token_id": tokenID})
+		return nil, errors.E("account not registered", params)
 	}
+
+	params["accounts"] = len(result.Accounts)
+	logger.Info("Account", params)
 	return result, nil
 }
 
@@ -126,5 +132,5 @@ func (c *Client) SendTransaction(tx hezCommon.PoolL2Tx, token hezCommon.Token) (
 func (c *Client) GetTokens() (*TokenAPI, error) {
 	var result *TokenAPI
 	return result, c.request.GetWithCache(
-		&result, "v1/tokens", nil, time.Minute*5)
+		&result, "v1/tokens", nil, 20*time.Minute)
 }
