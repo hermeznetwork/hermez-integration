@@ -25,12 +25,6 @@ const (
 	msg = "Hermez Network account access.\n\nSign this message if you are in a trusted application only."
 	// ethDerivationPath represents the ethereum bip-44 derivation path
 	ethDerivationPath = "m/44'/60'/0'/0/%d"
-	// AccountCreationAuthMsg is the message that is signed to authorize a Hermez account creation
-	AccountCreationAuthMsg = "I authorize this babyjubjub key for hermez rollup account creation"
-	// EIP712Version is the used version of the EIP-712
-	EIP712Version = "1"
-	// EIP712Provider defines the Provider for the EIP-712
-	EIP712Provider = "Hermez Network"
 )
 
 type (
@@ -155,8 +149,10 @@ func NewHezBJJ(pkComp babyjub.PublicKeyComp) string {
 
 // HezStrToBJJ convert bjj public key to babyjub.PublicKeyComp
 func HezStrToBJJ(s string) (babyjub.PublicKeyComp, error) {
-	const decodedLen = 33
-	const encodedLen = 44
+	const (
+		decodedLen = 33
+		encodedLen = 44
+	)
 	formatErr := errors.E("invalid BJJ format. Must follow this regex: ^hez:[A-Za-z0-9_-]{44}$", errors.Params{"bjj": s})
 	encoded := strings.TrimPrefix(s, "hez:")
 	if len(encoded) != encodedLen {
