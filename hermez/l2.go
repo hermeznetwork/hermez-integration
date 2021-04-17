@@ -13,8 +13,8 @@ func CreateTransfer(chainID uint16, toIdx hezCommon.Idx, amount *big.Int, privat
 	fromIdx hezCommon.Idx, tokenID hezCommon.TokenID, nonce hezCommon.Nonce,
 	fee hezCommon.FeeSelector) (*hezCommon.PoolL2Tx, error) {
 
-	return createTxObject(chainID, hezCommon.EmptyBJJComp, hezCommon.FFAddr,
-		amount, privateKey, fromIdx, toIdx,
+	return createTxObject(chainID, hezCommon.EmptyBJJComp,
+		hezCommon.EmptyAddr, amount, privateKey, fromIdx, toIdx,
 		tokenID, nonce, fee, hezCommon.TxTypeTransfer)
 }
 
@@ -61,15 +61,20 @@ func createTxObject(chainID uint16, toBjj babyjub.PublicKeyComp, toEthAddr ethCo
 
 	// Create the l2 tx object
 	tx := &hezCommon.PoolL2Tx{
-		FromIdx:   fromIdx,
-		ToBJJ:     toBjj,
-		ToEthAddr: toEthAddr,
-		ToIdx:     toIdx,
-		Amount:    amount,
-		Fee:       fee,
-		TokenID:   tokenID,
-		Nonce:     nonce,
-		Type:      txType,
+		FromIdx: fromIdx,
+		ToBJJ:   toBjj,
+		ToIdx:   toIdx,
+		Amount:  amount,
+		Fee:     fee,
+		TokenID: tokenID,
+		Nonce:   nonce,
+		Type:    txType,
+	}
+	if toEthAddr != hezCommon.EmptyAddr {
+		tx.ToEthAddr = toEthAddr
+	}
+	if toBjj != hezCommon.EmptyBJJComp {
+		tx.ToBJJ = toBjj
 	}
 
 	// Set tx type and id

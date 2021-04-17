@@ -128,6 +128,38 @@ func (c *Client) SendTransaction(tx hezCommon.PoolL2Tx, token hezCommon.Token) (
 	return hash, err
 }
 
+// AccountCreationAuth create an account authentication into the node.
+func (c *Client) AccountCreationAuth(ethAddr, bjj, signature string) error {
+	var result CreateAccountAuthAPI
+	err := c.request.Post(&result, "v1/account-creation-authorization", AccountAuth{
+		EthAddr:   ethAddr,
+		Bjj:       bjj,
+		Signature: signature,
+	})
+	if err != nil {
+		return err
+	}
+	if len(result.Message) > 0 {
+		return errors.E("AccountCreationAuth request error", result.Message,
+			errors.Params{"ethAddr": ethAddr, "bjj": bjj, "signature": signature})
+	}
+	return nil
+}
+
+// AccountAuth get the account authentication from the node.
+func (c *Client) AccountAuth(ethAddr string) (*AccountAuthAPI, error) {
+	var result *AccountAuthAPI
+	err := c.request.GetWithCache(&result, "v1/account-creation-authorization/"+ethAddr, nil, 1*time.Hour)
+	if err != nil {
+		return nil, err
+	}
+	if len(result.Message) > 0 {
+		return nil, errors.E("AccountCreationAuth request error",
+			result.Message, errors.Params{"ethAddr": ethAddr})
+	}
+	return result, nil
+}
+
 // GetTokens get all supported tokens
 func (c *Client) GetTokens() (*TokenAPI, error) {
 	var result *TokenAPI

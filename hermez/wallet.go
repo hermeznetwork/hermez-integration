@@ -8,6 +8,9 @@ import (
 	"strings"
 
 	"github.com/Pantani/errors"
+	"github.com/ethereum/go-ethereum/accounts"
+	ethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	ethCrypto "github.com/ethereum/go-ethereum/crypto"
 	"github.com/ethereum/go-ethereum/params"
 	hezCommon "github.com/hermeznetwork/hermez-node/common"
@@ -18,26 +21,36 @@ import (
 const (
 	// PkLength represents the size of the baby jubjub private key
 	PkLength uint16 = 32
-
-	// wallet configs
-	msg               = "Hermez Network account access.\n\nSign this message if you are in a trusted application only."
+	// msg message to be signed and generate the BJJ
+	msg = "Hermez Network account access.\n\nSign this message if you are in a trusted application only."
+	// ethDerivationPath represents the ethereum bip-44 derivation path
 	ethDerivationPath = "m/44'/60'/0'/0/%d"
+	// AccountCreationAuthMsg is the message that is signed to authorize a Hermez account creation
+	AccountCreationAuthMsg = "I authorize this babyjubjub key for hermez rollup account creation"
+	// EIP712Version is the used version of the EIP-712
+	EIP712Version = "1"
+	// EIP712Provider defines the Provider for the EIP-712
+	EIP712Provider = "Hermez Network"
 )
 
-// Wallet represents a wallet object with a private key,
-// public key and a baby jubjub hez address
-type Wallet struct {
-	PrivateKey    babyjub.PrivateKey
-	PublicKey     babyjub.PublicKeyComp
-	HezBjjAddress string
-	HezEthAddress string
-}
+type (
+	// Wallet represents a wallet object with a private key,
+	// public key and a baby jubjub hez address
+	Wallet struct {
+		PrivateKey    babyjub.PrivateKey
+		PublicKey     babyjub.PublicKeyComp
+		HezBjjAddress string
+		HezEthAddress string
+		Signature     string
+	}
+)
 
 // NewBJJ create a baby jubjub address from the mnemonic
 // and the derivation path. It returns a wallet object
 // with a private key, public key and a baby jubjub hez
 // address and a error if occurs.
-func NewBJJ(mnemonic string, index int) (*Wallet, error) {
+func NewBJJ(mnemonic string, index int, chainID uint16,
+	rollupContract ethCommon.Address) (*Wallet, error) {
 	w, err := hdwallet.NewFromMnemonic(mnemonic)
 	if err != nil {
 		return nil, errors.E("New wallet error", err)
@@ -58,13 +71,8 @@ func NewBJJ(mnemonic string, index int) (*Wallet, error) {
 	}
 
 	signature[len(signature)-1] += 27
-	sigEncoded := hex.EncodeToString(signature)
-
-	// Hash signature
-	var sb strings.Builder
-	sb.WriteString("0x")
-	sb.WriteString(sigEncoded)
-	hash := ethCrypto.Keccak256([]byte(sb.String()))
+	sigEncoded := hexutil.Encode(signature)
+	hash := ethCrypto.Keccak256([]byte(sigEncoded))
 
 	var sk babyjub.PrivateKey
 	copy(sk[:], hash[:])
@@ -82,12 +90,56 @@ func NewBJJ(mnemonic string, index int) (*Wallet, error) {
 	var pk babyjub.PublicKeyComp
 	copy(pk[:], pkBytes[:])
 
+	// Create the wallet authentication signature
+	// https://docs.hermez.io/#/developers/protocol/hermez-protocol/protocol?id=regular-rollup-account
+	// Use the endianness not swapped because the method will swap it again
+	var sigPk babyjub.PublicKeyComp
+	copy(sigPk[:], b[:])
+	authSign, err := createSignature(w, ethAccount, sigPk, chainID, rollupContract)
+	if err != nil {
+		return nil, errors.E("fail to generate the account authentication", err)
+	}
+
 	return &Wallet{
 		PrivateKey:    sk,
 		PublicKey:     pk,
 		HezBjjAddress: hezBjjAddress,
 		HezEthAddress: hezEthAddress,
+		Signature:     authSign,
 	}, nil
+}
+
+// createSignature creates the wallet authentication signature
+func createSignature(wallet *hdwallet.Wallet, ethAccount accounts.Account,
+	pk babyjub.PublicKeyComp, chainID uint16, rollupContract ethCommon.Address) (string, error) {
+	ethSk, err := wallet.PrivateKey(ethAccount)
+	if err != nil {
+		return "", err
+	}
+
+	auth := &hezCommon.AccountCreationAuth{
+		EthAddr: ethAccount.Address,
+		BJJ:     pk,
+	}
+	err = auth.Sign(func(hash []byte) ([]byte, error) {
+		return ethCrypto.Sign(hash, ethSk)
+	}, chainID, rollupContract)
+
+	hash, err := auth.HashToSign(chainID, rollupContract)
+	if err != nil {
+		return "", err
+	}
+
+	signature, err := ethCrypto.Sign(hash, ethSk)
+	if err != nil {
+		return "", err
+	}
+	signature[64] += 27
+
+	if !auth.VerifySignature(chainID, rollupContract) {
+		return "", errors.E("invalid signature")
+	}
+	return hexutil.Encode(signature), nil
 }
 
 // NewHezBJJ creates a HezBJJ from a *babyjub.PublicKeyComp.
