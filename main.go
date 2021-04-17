@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/hex"
 	"math/big"
 	"math/rand"
 	"os"
@@ -12,6 +11,8 @@ import (
 
 	"github.com/Pantani/errors"
 	"github.com/Pantani/logger"
+	ethCommon "github.com/ethereum/go-ethereum/common"
+	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/hermeznetwork/hermez-integration/client"
 	"github.com/hermeznetwork/hermez-integration/hermez"
 	"github.com/hermeznetwork/hermez-integration/track"
@@ -21,24 +22,30 @@ import (
 )
 
 const (
-	// Rinkeby chain id
-	chainID         = uint16(4)
-	nodeURL         = "https://api.testnet.hermez.io"
+	// chainID represents the Rinkeby chain id
+	chainID = uint16(4)
+	// nodeURL represents the Rinkeby testnet node URL
+	nodeURL = "https://api.testnet.hermez.io"
+	// rollupContract represents the Rinkeby rollup contract address
+	rollupContract = "0x679b11E0229959C1D3D27C9d20529E4C5DF7997c"
+	// poolingInterval pooling interval to check the transactions state
 	poolingInterval = 10 * time.Second
 )
 
 func main() {
-	err := run(nodeURL, chainID, poolingInterval)
+	err := run(nodeURL, rollupContract, chainID, poolingInterval)
 	if err != nil {
 		logger.Fatal(err)
 	}
 }
 
-func run(nodeURL string, chainID uint16, poolingInterval time.Duration) error {
+func run(nodeURL, rollupContract string, chainID uint16, poolingInterval time.Duration) error {
 	// init context
 	ctx, cancel := context.WithCancel(context.Background())
 	grp, gctx := errgroup.WithContext(ctx)
 	defer cancel()
+
+	contract := ethCommon.HexToAddress(rollupContract)
 
 	// create a new Hermez node client
 	c := client.New(nodeURL)
@@ -64,14 +71,15 @@ func run(nodeURL string, chainID uint16, poolingInterval time.Duration) error {
 
 	// represents the mnemonic for the exchange user wallets
 	exchangeMnemonic := "lava dinosaur defy stone aim faint suspect harsh ranch sorry network wrestle"
-	numberOfUsers := 10
+	startUserIndex := 30
+	numberOfUsers := 13
 	ethUserWallets := make([]string, 0)
 	bjjUserWallets := make([]string, 0)
 
 	// Increase the wallet index to generate a new wallet based
 	// in the bip39, starting from zero
-	for walletIndex := 0; walletIndex < numberOfUsers; walletIndex++ {
-		bjj, err := hermez.NewBJJ(exchangeMnemonic, walletIndex)
+	for walletIndex := startUserIndex; walletIndex < startUserIndex+numberOfUsers; walletIndex++ {
+		bjj, err := hermez.NewBJJ(exchangeMnemonic, walletIndex, chainID, contract)
 		if err != nil {
 			return err
 		}
@@ -80,10 +88,24 @@ func run(nodeURL string, chainID uint16, poolingInterval time.Duration) error {
 			"index":           walletIndex,
 			"hez_eth_address": bjj.HezEthAddress,
 			"hez_bjj_address": bjj.HezBjjAddress,
-			"private_key":     "0x" + hex.EncodeToString(pkBuf[:]),
+			"private_key":     hexutil.Encode(pkBuf[:]),
 		})
 		ethUserWallets = append(ethUserWallets, bjj.HezEthAddress)
 		bjjUserWallets = append(bjjUserWallets, bjj.HezBjjAddress)
+
+		// Get the signature from the hez eth address
+		_, err = c.AccountAuth(bjj.HezEthAddress)
+		if err != nil {
+			// If the signature not exist, create a new one
+			err = c.AccountCreationAuth(bjj.HezEthAddress, bjj.HezBjjAddress, bjj.Signature)
+			if err != nil {
+				return err
+			}
+		}
+		logger.Info("User account authentication created", logger.Params{
+			"hez_eth_address": bjj.HezEthAddress,
+			"signature":       bjj.Signature,
+		})
 	}
 
 	// track incoming track
@@ -96,7 +118,7 @@ func run(nodeURL string, chainID uint16, poolingInterval time.Duration) error {
 	outWalletIndex := 0
 
 	// Create a baby jubjub wallet based in the mnemonic and index
-	bjj, err := hermez.NewBJJ(outWalletMnemonic, outWalletIndex)
+	bjj, err := hermez.NewBJJ(outWalletMnemonic, outWalletIndex, chainID, contract)
 	if err != nil {
 		return err
 	}
@@ -104,7 +126,21 @@ func run(nodeURL string, chainID uint16, poolingInterval time.Duration) error {
 	logger.Info("Out Wallet", logger.Params{
 		"hez_eth_address": bjj.HezEthAddress,
 		"hez_bjj_address": bjj.HezBjjAddress,
-		"private_key":     "0x" + hex.EncodeToString(pkBuf[:]),
+		"private_key":     hexutil.Encode(pkBuf[:]),
+	})
+
+	// Get the signature from the hez eth address
+	_, err = c.AccountAuth(bjj.HezEthAddress)
+	if err != nil {
+		// If the signature not exist, create a new one
+		err = c.AccountCreationAuth(bjj.HezEthAddress, bjj.HezBjjAddress, bjj.Signature)
+		if err != nil {
+			return err
+		}
+	}
+	logger.Info("User account authentication created", logger.Params{
+		"hez_eth_address": bjj.HezEthAddress,
+		"signature":       bjj.Signature,
 	})
 
 	// A fee is a percentage value from the token amount, and the fee amount in USD must
@@ -145,13 +181,13 @@ func run(nodeURL string, chainID uint16, poolingInterval time.Duration) error {
 	hashes = append(hashes, txID)
 	logger.Info("transferToBjj", logger.Params{"tx_id": txID})
 
-	//  Create a transfer to the second user ethereum address *****
+	// Create a transfer to the second user ethereum address
 	nonce++
 	time.Sleep(3 * time.Second)
 	rand.Seed(time.Now().Unix())
 	ethIndex := rand.Intn(len(ethUserWallets))
-	toHezEthAddr := ethUserWallets[ethIndex]
-	txID, err = transaction.TransferToEthAddress(bjj, c, chainID, fromIdx, toHezEthAddr, amount, fee, ethToken, nonce)
+	toHezAddr := ethUserWallets[ethIndex]
+	txID, err = transaction.TransferToEthAddress(bjj, c, chainID, fromIdx, toHezAddr, amount, fee, ethToken, nonce)
 	if err != nil {
 		return err
 	}
@@ -161,7 +197,7 @@ func run(nodeURL string, chainID uint16, poolingInterval time.Duration) error {
 	// Create a transfer to an already existing account into the
 	// network using the idx (Merkle tree index).
 	nonce++
-	toHezAddr := "hez:0xbA00D84Ddbc8cAe67C5800a52496E47A8CaFcd27"
+	toHezAddr = "hez:0xbA00D84Ddbc8cAe67C5800a52496E47A8CaFcd27"
 	toIdx, _, err := transaction.GetAccountInfo(c, nil, &toHezAddr, ethToken.TokenID)
 	if err != nil {
 		return err

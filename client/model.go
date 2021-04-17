@@ -133,6 +133,27 @@ type (
 		Signature string         `json:"signature"`
 	}
 
+	// AccountAuth is a representation of a account authentication API request.
+	AccountAuth struct {
+		EthAddr   string `json:"hezEthereumAddress"`
+		Bjj       string `json:"bjj"`
+		Signature string `json:"signature"`
+	}
+
+	// CreateAccountAuthAPI is a representation of a account authentication API response.
+	CreateAccountAuthAPI struct {
+		Message string `json:"Message"`
+	}
+
+	// AccountAuthAPI is a representation of a account authentication API response.
+	AccountAuthAPI struct {
+		EthAddr   string                `json:"hezEthereumAddress"`
+		Bjj       string                `json:"bjj"`
+		Signature apitypes.EthSignature `json:"signature"`
+		Timestamp time.Time             `json:"timestamp"`
+		Message   string                `json:"Message"`
+	}
+
 	// Accounts is a representation of a account list.
 	Accounts []Account
 
