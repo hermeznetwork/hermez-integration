@@ -71,8 +71,11 @@ func run(nodeURL, rollupContract string, chainID uint16, poolingInterval time.Du
 
 	// represents the mnemonic for the exchange user wallets
 	exchangeMnemonic := "lava dinosaur defy stone aim faint suspect harsh ranch sorry network wrestle"
-	startUserIndex := 30
-	numberOfUsers := 13
+	// index of wallet to start to generate addresses to the users
+	startUserIndex := 0
+	// number of addresses to be generated
+	numberOfUsers := 6
+
 	ethUserWallets := make([]string, 0)
 	bjjUserWallets := make([]string, 0)
 
