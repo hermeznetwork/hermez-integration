@@ -21,18 +21,17 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-const (
-	// chainID represents the Rinkeby chain id
-	chainID = uint16(4)
-	// nodeURL represents the Rinkeby testnet node URL
-	nodeURL = "https://api.testnet.hermez.io"
-	// rollupContract represents the Rinkeby rollup contract address
-	rollupContract = "0x679b11E0229959C1D3D27C9d20529E4C5DF7997c"
-	// poolingInterval pooling interval to check the transactions state
-	poolingInterval = 10 * time.Second
-)
-
 func main() {
+	const (
+		// chainID represents the Rinkeby chain id
+		chainID = uint16(4)
+		// nodeURL represents the Rinkeby testnet node URL
+		nodeURL = "https://api.testnet.hermez.io"
+		// rollupContract represents the Rinkeby rollup contract address
+		rollupContract = "0x679b11E0229959C1D3D27C9d20529E4C5DF7997c"
+		// poolingInterval pooling interval to check the transactions state
+		poolingInterval = 10 * time.Second
+	)
 	err := run(nodeURL, rollupContract, chainID, poolingInterval)
 	if err != nil {
 		logger.Fatal(err)
