@@ -2,7 +2,8 @@
 
 Go examples for Hermez Network integration:
 
-- Create BJJ wallets form a mnemonic;
+- Create BJJ wallets from a mnemonic;
+- Create wallet authorization signature;
 - Calculate fee;
 - Sign L2 transactions;
 - Get the last batch;
