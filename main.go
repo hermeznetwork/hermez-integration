@@ -32,6 +32,8 @@ func main() {
 		// poolingInterval pooling interval to check the transactions state
 		poolingInterval = 10 * time.Second
 	)
+
+	logger.SetLogLevel(logger.DebugLevel)
 	err := run(nodeURL, rollupContract, chainID, poolingInterval)
 	if err != nil {
 		logger.Fatal(err)
@@ -39,6 +41,8 @@ func main() {
 }
 
 func run(nodeURL, rollupContract string, chainID uint16, poolingInterval time.Duration) error {
+	rand.Seed(time.Now().Unix())
+
 	// init context
 	ctx, cancel := context.WithCancel(context.Background())
 	grp, gctx := errgroup.WithContext(ctx)
@@ -96,10 +100,9 @@ func run(nodeURL, rollupContract string, chainID uint16, poolingInterval time.Du
 		bjjUserWallets = append(bjjUserWallets, bjj.HezBjjAddress)
 
 		// Get the signature from the hez eth address
-		_, err = c.AccountAuth(bjj.HezEthAddress)
-		if err != nil {
+		if _, err = c.AccountAuth(bjj.HezEthAddress); err != nil {
 			// If the signature not exist, create a new one
-			err = c.AccountCreationAuth(bjj.HezEthAddress, bjj.HezBjjAddress, bjj.Signature)
+			err := c.AccountCreationAuth(bjj.HezEthAddress, bjj.HezBjjAddress, bjj.Signature)
 			if err != nil {
 				return err
 			}
@@ -132,10 +135,9 @@ func run(nodeURL, rollupContract string, chainID uint16, poolingInterval time.Du
 	})
 
 	// Get the signature from the hez eth address
-	_, err = c.AccountAuth(bjj.HezEthAddress)
-	if err != nil {
+	if _, err := c.AccountAuth(bjj.HezEthAddress); err != nil {
 		// If the signature not exist, create a new one
-		err = c.AccountCreationAuth(bjj.HezEthAddress, bjj.HezBjjAddress, bjj.Signature)
+		err := c.AccountCreationAuth(bjj.HezEthAddress, bjj.HezBjjAddress, bjj.Signature)
 		if err != nil {
 			return err
 		}
@@ -172,8 +174,6 @@ func run(nodeURL, rollupContract string, chainID uint16, poolingInterval time.Du
 	}
 
 	// Create a transfer to the first baby jubjub user address
-	time.Sleep(3 * time.Second)
-	rand.Seed(time.Now().Unix())
 	bjjIndex := rand.Intn(len(bjjUserWallets))
 	toHezBjjAddr := bjjUserWallets[bjjIndex]
 	txID, err := transaction.TransferToBjj(bjj, c, chainID, fromIdx, toHezBjjAddr, amount, fee, ethToken, nonce)
@@ -185,8 +185,6 @@ func run(nodeURL, rollupContract string, chainID uint16, poolingInterval time.Du
 
 	// Create a transfer to the second user ethereum address
 	nonce++
-	time.Sleep(3 * time.Second)
-	rand.Seed(time.Now().Unix())
 	ethIndex := rand.Intn(len(ethUserWallets))
 	toHezAddr := ethUserWallets[ethIndex]
 	txID, err = transaction.TransferToEthAddress(bjj, c, chainID, fromIdx, toHezAddr, amount, fee, ethToken, nonce)
@@ -213,7 +211,6 @@ func run(nodeURL, rollupContract string, chainID uint16, poolingInterval time.Du
 
 	//Transfer tokens from an account to the exit tree, L2 --> L1
 	nonce++
-	time.Sleep(3 * time.Second)
 	txID, err = transaction.Exit(bjj, c, chainID, fromIdx, amount, fee, ethToken, nonce)
 	if err != nil {
 		return err

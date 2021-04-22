@@ -14,7 +14,7 @@ func CreateTransfer(chainID uint16, toIdx hezCommon.Idx, amount *big.Int, privat
 	fee hezCommon.FeeSelector) (*hezCommon.PoolL2Tx, error) {
 
 	return createTxObject(chainID, hezCommon.EmptyBJJComp,
-		hezCommon.EmptyAddr, amount, privateKey, fromIdx, toIdx,
+		hezCommon.FFAddr, amount, privateKey, fromIdx, toIdx,
 		tokenID, nonce, fee, hezCommon.TxTypeTransfer)
 }
 
